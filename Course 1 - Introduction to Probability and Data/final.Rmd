@@ -1,0 +1,187 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+* * *
+
+## Part 1: Data
+
+
+##### Data Collection Process
+
+Spanning 50 U.S. states, the District of Columbia, and three U.S. territories, more than 400,000 adult BRFSS surveys are conducted each year. A randomly sampled adult from each participating household fills out a survey regarding health-related risk behaviors and events, chronic health conditions, and use of preventive services in order to gauge emerging health issues. Surveys are conducted over the phone, which leads to my concern that those in poverty unable to afford a landline/cell phone are unable to participate in the survey and moreover are potentially more at-risk due to not being able to afford health services, which could potentially skew the results of the questionnaire.
+
+##### Generalizable Results
+
+The data was gathered randomly sampling an adult from each household or residence. The study is observational because the researchers merely collected data without interfering; the researchers asked a questionnaire instead of overseeing an experiment. Therefore, we can infer from the observational nature of the study and the fact that participants were randomly sampled that the study's results are generalizable. 
+
+##### Non-causal Results
+
+No random assignment was used when gathering data as participants were never assigned into groups after being sampled. Therefore, we can further infer that the results of the study are non-causal and only correlation statements can be made using the results.
+
+* * *
+
+## Part 2: Research questions
+
+**Research question 1:** Is there a correlation between being number of hours worked per week and poor health?  
+
+**Significance of question 1:** This research question is of significance because there have been many anecdotal claims that working more hours is detrimental to health, yet some argue that working leads to better health by giving one purpose along with access to better healthcare and benefits.
+
+
+**Research question 2:**  Is there a correlation between being a veteran and poor physical or mental health, and can an association between both aforementioned variables and binge drinking be inferred?
+
+**Significance of question 2:** This research question is of significance because post-traumatic stress disorder and drug abuse has been cited to plague many veterans, yet there are many examples of veterans successfully reintegrating into society that have been used to dissent against introduced policies to provide better coverage and benefits for veterans.
+
+
+**Research question 3:** Is there a correlation between high blood pressure and time slept per night, and can an association between both aforementioned variables and weight be inferred?
+
+**Significance of question 3:** This research question is of significance because poor sleep has been cited to affect the heart so it would be interesting to see if blood pressure is affected. Moreover, it would be interesting to see if a lack of sleep and high blood pressure, both physically limiting factors, affect a physical attribute such as weight.
+
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+
+#### Research question 1:
+**Is there a correlation between being number of hours worked per week and reporting poor health?**  
+
+##### Variables:
+
+1. scntwrk1: How Many Hours Per Week Do You Work
+
+2. genhlth: General Health
+
+3. poorthlthpct: Custom variable, percentage of participants who worked the same number of hours per week who reported "Poor" health when asked about general health (genhlth)
+
+##### Preprocessing
+```{r}
+q1tbl <- brfss2013 %>% filter(!(is.na(scntwrk1)), !(is.na(genhlth))) %>% group_by(scntwrk1) %>% summarize(poorhlthpct = sum(genhlth == "Poor") * 100 / n()) %>% arrange(desc(poorhlthpct)) %>% mutate(poorhlthpct = poorhlthpct)
+```
+
+##### Summary Statistics
+```{r}
+q1tbl %>% print(n=20)
+```
+The relevance of examining 'poorhlthpct' diminishes in quantity, hence my choice to display the 20 greatest percentages and the associated hours worked, sorted by percentage. Right off the bat, we see that extremes in terms of hours worked (greater than 80 and less than 20) result in a higher percentage of people reporting that they have poor health. While the distribution does not necessarily indicate a correlation, my initial thought after seeing the table was that we would see a right skewed distribution with outliers at extreme hours worked, which is corroborated by the following plot.
+
+##### Plot
+```{r}
+q1plt <- ggplot(data = q1tbl, aes(x = scntwrk1, y = poorhlthpct)) + geom_point() + geom_line()
+q1plt <- q1plt + xlab("Hours Worked Per Week") + ylab("Percentage With Poor Health")
+q1plt
+```
+
+
+From the plot, we can ascertain that the majority of the data follows that of a loosely right skewed distribution, however there is a significant outlier around 80 hours worked. Moreover, there is a sigifnicant amount of "up-and-down" variation in the distribution. It appears that a higher percentage of those who worked under 40 hours reported poor health and that the lowest percentage of those reporting poor health ranging between 50 and 75 hours worked per week. After 75 hours a week, the percentage report poor health rises unpredictably. Therefore, we can state that there is a loose correlation between the number of hours worked per week and reporting poor health based on the distribution.
+
+
+#### Research question 2: 
+**Is there a correlation between being a veteran and poor physical or mental health, and can an association between both aforementioned variables and binge drinking be inferred?**
+
+##### Variables:
+
+1. veteran3: Are You A Veteran
+
+2. poorhlth: Poor Physical Or Mental Health
+
+3. drnk3ge5: Binge Drinking
+
+##### Preprocessing
+```{r}
+q2tbl <- brfss2013 %>% filter(!(is.na(veteran3)), !(is.na(poorhlth)), !(is.na(drnk3ge5)))
+q2tbl <- q2tbl %>% mutate(poorhlth = ifelse(poorhlth > 7, "8+", poorhlth))
+q2tbl$poorhlth <- factor(q2tbl$poorhlth)
+q2tbl <- q2tbl %>% mutate(drnk3ge5 = ifelse(drnk3ge5 > 7, "8+", drnk3ge5))
+```
+
+##### Summary Statistics
+```{r}
+q2tbl %>% group_by(drnk3ge5, veteran3) %>% summarize(count=n())
+```
+
+In the statistics above, we generalize days binge drank in the last month exceeding a week as '8+' to indicate excessive binge drinking. The summary statistics illustrate a choppy normal distribution of proportions of veterans binge drinking, with the distribution fluctuating up and down independent from the number of days binge drank, hinting at a possible correlation.
+
+```{r}
+q2tbl %>% group_by(poorhlth, veteran3) %>% summarize(count=n())
+```
+
+Similar to the statistics regarding veterans binge drinking, we note a similar choppy normal distribution that fluctuates independent from days reported with poor health, hinting at a possible correlation.
+
+##### Plot
+```{r}
+q2plt <- ggplot(q2tbl) + aes(x = veteran3, fill = poorhlth) + geom_bar(position = "fill") + facet_grid(.~drnk3ge5)
+q2plt <- q2plt + scale_fill_brewer(name="Poor Health Last 30 Days", palette = "Spectral") + xlab("Bottom: Is Veteran, Top: Days Binge Drank Last 30 Days") + ylab("Relative Proportion")
+q2plt
+
+```
+
+The plot illustrates a normal distribution for no days of poor health across 0 through 8+ days spent binge drinking in the last month and a an increasing linear trend for poor health across the same range Moreover, there were proportionately less veterans than non-veterans who reported little to no days of poor health consistently across 0 through 8+ days spent binge drinking and proportionately more veterans who reported more days of poor health than non-veterans consistent across the same range. This trend indicates that there is a strong correlation between being a veteran, poor physical or mental health, and binge drinking.
+
+##### Research question 3: 
+**Is there a correlation between high blood pressure and time slept per night, and can an association between both aforementioned variables and weight be inferred?**
+
+##### Variables:
+
+1. bphigh4: Ever Told Blood Pressure High
+
+2. sleptim1: How Much Time Do You Sleep
+
+3. weight2: Reported Weight In Pounds
+
+##### Preprocessing
+```{r}
+q3tbl <- brfss2013 %>% filter((bphigh4 == "Yes" | bphigh4 == "No"), !(is.na(sleptim1)), !(is.na(weight2)))
+q3tbl$weight2 <- as.numeric(as.character(q3tbl$weight2))
+q3tbl <- q3tbl %>% filter(!(is.na(weight2)))
+q3tbl <- q3tbl %>% filter(weight2 < 1000)
+q3tbl$weight2 = cut(q3tbl$weight2,c(49,100,150,200,250,300,700))
+q3tbl <- q3tbl %>% group_by(weight2)
+levels(q3tbl$weight2) <- c("50-100","100-150","150-200", "200-250", "250-300", "300-700")
+q3tbl <- q3tbl %>% mutate(sleptim1 = ifelse(sleptim1 < 11, sleptim1,"11+"))
+q3tbl$sleptim1 <- factor(q3tbl$sleptim1, levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11+"))
+```
+
+##### Summary Statistics
+```{r}
+q3tbl %>% group_by(sleptim1, bphigh4) %>% summarize(count=n()) %>% print(n=22)
+```
+
+From the proportions of having high blood pressure to not having high blood pressure, there appears to be not be a distinct correlation.
+
+```{r}
+q3tbl %>% group_by(weight2, bphigh4) %>% summarize(count=n()) 
+```
+
+Surmised from the proportions of having and not having high blood pressure in each range, there is a clear correlation between weight and high blood pressure, as the percentage of those with high blood pressure increases with weight range.
+
+##### Plot
+```{r}
+q3plt <- ggplot(q3tbl) + aes(x = bphigh4, fill = weight2) + geom_bar(position = "fill") + facet_grid(.~sleptim1)
+q3plt <- q3plt + scale_fill_brewer(name="Weight (Pounds)", palette = "Spectral") + xlab("Bottom: High Blood Pressure, Top: Time Slept Per Night (Hours)") + ylab("Relative Proportion")
+q3plt
+
+```
+
+From the unfiorm distribution of time slept against weight, there appears to be no correlation between the two statistics. This is especially evident in that regardless of hours slept weight distributed such that those with high blood pressure tend to have greater weight. However, the positive relationship between high blood pressure and weight hints at a positive correlation. Therefore, we can assert that there is no correlation between time slept and weight but that there is a correlation between weight and high blood pressure.
+
